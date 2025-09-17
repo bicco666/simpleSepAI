@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simpleSepAI • Mini-Dashboard (Tests per Button)</title>
+  <style>
+    :root { --bg:#1f2937; --panel:#374151; --text:#e5e7eb; --accent:#60a5fa; }
+    body{ margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .container{ max-width:1100px; margin:24px auto; padding:0 16px; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .grid-4{ display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; }
+    @media (max-width: 980px){ .grid-4{ grid-template-columns: repeat(2, 1fr);} }
+    @media (max-width: 560px){ .grid-4{ grid-template-columns: 1fr;} }
+    .card{ background:var(--panel); border-radius:16px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+    .title{ font-size:24px; margin:0 0 8px; }
+    .muted{ opacity:.85; }
+    button{ background:var(--accent); color:#0b1020; border:0; padding:10px 12px; border-radius:12px; font-weight:700; cursor:pointer; }
+    button:disabled{ opacity:.5; cursor:not-allowed;}
+    .row{ display:flex; gap:12px; flex-wrap:wrap; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; }
+    .log{ white-space:pre-wrap; min-height:160px; max-height:360px; overflow:auto; background:#111827; border-radius:12px; padding:12px; }
+    .kpi{ font-size:20px; }
+    .kpi .label{ font-size:12px; opacity:.7; display:block; }
+    .status{ font-size:14px; padding:8px 10px; background:#111827; border-radius:10px; margin:8px 0 12px; min-height:22px; }
+    .badge{ display:inline-block; padding:4px 8px; border-radius:999px; background:#111827; margin-right:6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">simpleSepAI • Mini-Dashboard</h1>
+    <p class="muted">Tests jetzt direkt per Button starten. Reports werden in <span class="mono">Report/</span> erzeugt.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="title">Aktionen</h2>
+        <div class="row">
+          <button id="btnSystemtest">Systemtest</button>
+          <button id="btnIdea">Idee generieren</button>
+          <button id="btnAnalysis">Analyse generieren</button>
+          <button id="btnExecute">Execution durchführen</button>
+          <button id="btnRunTests">Alle Tests ausführen</button>
+        </div>
+        <div id="testSummary" class="status">–</div>
+        <div id="testReports" class="mono" style="font-size:12px;"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="title">Wallet</h2>
+        <div class="kpi">
+          <span class="label">Solana Wallet Balance</span>
+          <span id="balance" class="mono">0.000000000</span>
+        </div>
+        <div style="height:8px"></div>
+        <div class="kpi">
+          <span class="label">Solana Adresse</span>
+          <span id="address" class="mono">DevnetStub1111111111111111111111111111111</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="card">
+      <h2 class="title">Gruppen • Status & Tests</h2>
+      <div class="grid-4">
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Quality</h3>
+          <div id="statusQuality" class="status">–</div>
+          <button id="btnTestQuality">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Idea</h3>
+          <div id="statusIdea" class="status">–</div>
+          <button id="btnTestIdea">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Analyse</h3>
+          <div id="statusAnalyse" class="status">–</div>
+          <button id="btnTestAnalyse">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Execution</h3>
+          <div id="statusExecution" class="status">–</div>
+          <button id="btnTestExecution">Test</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="card">
+      <h2 class="title">Protokoll</h2>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      const ts = new Date().toLocaleTimeString();
+      el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    };
+    const setStatus = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; }
+    const call = async (method, path, body) => {
+      const url = `http://127.0.0.1:8000/api${path}`;
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      return await res.json();
+    };
+
+    // Actions
+    document.getElementById('btnSystemtest').onclick = async () => {
+      const r = await call('GET', '/systemtest'); log('Systemtest: ' + JSON.stringify(r));
+    };
+    document.getElementById('btnIdea').onclick = async () => {
+      const r = await call('GET', '/idea'); const txt = (r && (r.idea ?? r.error)) || 'Kein Inhalt';
+      log('Idee: ' + txt + (r && r.source ? `  [${r.source}]` : '')); setStatus('statusIdea', txt);
+    };
+    document.getElementById('btnAnalysis').onclick = async () => {
+      const r = await call('GET', '/analysis'); const txt = (r && (r.analysis ?? r.error)) || 'Kein Inhalt';
+      log('Analyse: ' + txt + (r && r.source ? `  [${r.source}]` : '')); setStatus('statusAnalyse', txt);
+    };
+    document.getElementById('btnExecute').onclick = async () => {
+      const r = await call('POST', '/execute', { sol: 0.01 });
+      const txt = (r && (r.execution ?? r.error)) || 'Kein Inhalt';
+      log('Execution: ' + txt + (r && r.source ? `  [${r.source}]` : ''));
+      if (r && r.balance !== undefined && r.balance !== null) document.getElementById('balance').textContent = Number(r.balance).toFixed(9);
+      if (r && r.address) document.getElementById('address').textContent = r.address;
+      setStatus('statusExecution', r && r.ok ? 'OK' : 'Fehler');
+    };
+
+    // Group buttons
+    document.getElementById('btnTestQuality').onclick = async () => {
+      setStatus('statusQuality', 'läuft ...');
+      const r = await call('GET', '/systemtest');
+      setStatus('statusQuality', r.report || (r.ok ? 'OK' : 'Fehler'));
+      log('[Quality/Test] ' + JSON.stringify(r));
+    };
+    document.getElementById('btnTestIdea').onclick = async () => {
+      setStatus('statusIdea', 'läuft ...');
+      const r = await call('GET', '/idea'); const txt = (r && (r.idea ?? r.error)) || 'Kein Inhalt';
+      setStatus('statusIdea', txt); log('[Idea/Test] ' + JSON.stringify(r));
+    };
+    document.getElementById('btnTestAnalyse').onclick = async () => {
+      setStatus('statusAnalyse', 'läuft ...');
+      const r = await call('GET', '/analysis'); const txt = (r && (r.analysis ?? r.error)) || 'Kein Inhalt';
+      setStatus('statusAnalyse', txt); log('[Analyse/Test] ' + JSON.stringify(r));
+    };
+    document.getElementById('btnTestExecution').onclick = async () => {
+      setStatus('statusExecution', 'läuft ...');
+      const r = await call('POST', '/execute', { sol: 0.01 });
+      setStatus('statusExecution', r && r.ok ? 'OK' : 'Fehler');
+      if (r && r.balance !== undefined && r.balance !== null) document.getElementById('balance').textContent = Number(r.balance).toFixed(9);
+      if (r && r.address) document.getElementById('address').textContent = r.address;
+      log('[Execution/Test] ' + JSON.stringify(r));
+    };
+
+    // NEW: Run all tests
+    document.getElementById('btnRunTests').onclick = async () => {
+      setStatus('testSummary', 'Tests laufen ...');
+      document.getElementById('testReports').textContent = '';
+      const r = await call('POST', '/run_tests');
+      if (!r || r.ok === false) {
+        setStatus('testSummary', 'Fehler bei Test-Start: ' + (r && r.error ? r.error : 'unbekannt'));
+        return;
+      }
+      const s = r.summary || {passed:0, failed:0, total:0};
+      setStatus('testSummary', `Summary: ${s.passed} PASS, ${s.failed} FAIL, total ${s.total} (exit_code=${r.exit_code})`);
+      const list = (r.reports || []).map(x => `${x.status.padEnd(5)}  ${x.file}`).join('\n');
+      document.getElementById('testReports').textContent = list || '(keine Reportdateien gefunden)';
+      log('[RunTests] pytest exit_code=' + r.exit_code + '\n' + (r.pytest_out || ''));
+    };
+  </script>
+</body>
+</html>

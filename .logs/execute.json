@@ -1,0 +1,1 @@
+{"ok":true,"execution":"testtransaction send 0,01 sol","log":["EXECUTION: testtransaction send 0,01 sol"],"address":"DevnetStub111111111111","balance":0.0,"source":"Backend/execution.txt"}

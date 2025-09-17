@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simpleSepAI • Mini-Dashboard</title>
+  <style>
+    :root { --bg:#1f2937; --panel:#374151; --text:#e5e7eb; --accent:#60a5fa; }
+    body{ margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .container{ max-width:900px; margin:24px auto; padding:0 16px; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .card{ background:var(--panel); border-radius:16px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+    .title{ font-size:24px; margin:0 0 8px; }
+    .muted{ opacity:.85; }
+    button{ background:var(--accent); color:#0b1020; border:0; padding:12px 14px; border-radius:12px; font-weight:700; cursor:pointer; }
+    button:disabled{ opacity:.5; cursor:not-allowed;}
+    .row{ display:flex; gap:12px; flex-wrap:wrap; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .log{ white-space:pre-wrap; min-height:120px; max-height:240px; overflow:auto; background:#111827; border-radius:12px; padding:12px; }
+    .kpi{ font-size:20px; }
+    .kpi .label{ font-size:12px; opacity:.7; display:block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">simpleSepAI • Mini-Dashboard</h1>
+    <p class="muted">Aller simpelster Prototyp – klickbar, testbar, minimal.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="title">Aktionen</h2>
+        <div class="row">
+          <button id="btnSystemtest">Systemtest</button>
+          <button id="btnIdea">Idee generieren</button>
+          <button id="btnAnalysis">Analyse generieren</button>
+          <button id="btnExecute">Execution durchführen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="title">Wallet</h2>
+        <div class="kpi">
+          <span class="label">Solana Wallet Balance</span>
+          <span id="balance" class="mono">0.000000000</span>
+        </div>
+        <div style="height:8px"></div>
+        <div class="kpi">
+          <span class="label">Solana Adresse</span>
+          <span id="address" class="mono">DevnetStub1111111111111111111111111111111</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="card">
+      <h2 class="title">Protokoll</h2>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      const ts = new Date().toLocaleTimeString();
+      el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    };
+
+    const call = async (method, path, body) => {
+      const url = `http://127.0.0.1:8000/api${path}`;
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      const data = await res.json();
+      return data;
+    };
+
+    document.getElementById('btnSystemtest').onclick = async () => {
+      const r = await call('GET', '/systemtest');
+      log('Systemtest: ' + JSON.stringify(r));
+    };
+
+    document.getElementById('btnIdea').onclick = async () => {
+      const r = await call('GET', '/idea');
+      log('Idee: ' + r.idea);
+    };
+
+    document.getElementById('btnAnalysis').onclick = async () => {
+      const r = await call('GET', '/analysis');
+      log('Analyse: ' + r.analysis);
+    };
+
+    document.getElementById('btnExecute').onclick = async () => {
+      const r = await call('POST', '/execute', { sol: 0.01 });
+      log('Execution: ' + JSON.stringify(r));
+      if (r.balance !== undefined) document.getElementById('balance').textContent = r.balance.toFixed(9);
+    };
+  </script>
+</body>
+</html>

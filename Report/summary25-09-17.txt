@@ -1,0 +1,18 @@
+Timestamp: 2025-09-17 21:38:40
+Exit code: 0
+Per-Test Ergebnisse:
+(Keine per-Test-Zeilen gefunden – siehe pytest stdout unten)
+
+---- Pytest stdout (Tail) ----
+....                                                                     [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED Tests/test_endpoints.py::test_systemtest
+PASSED Tests/test_endpoints.py::test_idea
+PASSED Tests/test_endpoints.py::test_analysis
+PASSED Tests/test_endpoints.py::test_execute
+4 passed in 0.23s
+
+
+---- Pytest stderr (Tail) ----
+

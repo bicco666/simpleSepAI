@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simpleSepAI • Mini-Dashboard (+ Gruppen)</title>
+  <style>
+    :root { --bg:#1f2937; --panel:#374151; --text:#e5e7eb; --accent:#60a5fa; }
+    body{ margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .container{ max-width:1100px; margin:24px auto; padding:0 16px; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .grid-4{ display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; }
+    @media (max-width: 980px){ .grid-4{ grid-template-columns: repeat(2, 1fr);} }
+    @media (max-width: 560px){ .grid-4{ grid-template-columns: 1fr;} }
+    .card{ background:var(--panel); border-radius:16px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+    .title{ font-size:24px; margin:0 0 8px; }
+    .muted{ opacity:.85; }
+    button{ background:var(--accent); color:#0b1020; border:0; padding:10px 12px; border-radius:12px; font-weight:700; cursor:pointer; }
+    button:disabled{ opacity:.5; cursor:not-allowed;}
+    .row{ display:flex; gap:12px; flex-wrap:wrap; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; }
+    .log{ white-space:pre-wrap; min-height:120px; max-height:240px; overflow:auto; background:#111827; border-radius:12px; padding:12px; }
+    .kpi{ font-size:20px; }
+    .kpi .label{ font-size:12px; opacity:.7; display:block; }
+    .status{ font-size:14px; padding:8px 10px; background:#111827; border-radius:10px; margin:8px 0 12px; min-height:22px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">simpleSepAI • Mini-Dashboard</h1>
+    <p class="muted">Aller simpelster Prototyp – klickbar, testbar, minimal.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="title">Aktionen</h2>
+        <div class="row">
+          <button id="btnSystemtest">Systemtest</button>
+          <button id="btnIdea">Idee generieren</button>
+          <button id="btnAnalysis">Analyse generieren</button>
+          <button id="btnExecute">Execution durchführen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="title">Wallet</h2>
+        <div class="kpi">
+          <span class="label">Solana Wallet Balance</span>
+          <span id="balance" class="mono">0.000000000</span>
+        </div>
+        <div style="height:8px"></div>
+        <div class="kpi">
+          <span class="label">Solana Adresse</span>
+          <span id="address" class="mono">DevnetStub1111111111111111111111111111111</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <!-- NEW: Vier Gruppen mit Status + Test-Button -->
+    <div class="card">
+      <h2 class="title">Gruppen • Status & Tests</h2>
+      <div class="grid-4">
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Quality</h3>
+          <div id="statusQuality" class="status">–</div>
+          <button id="btnTestQuality">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Idea</h3>
+          <div id="statusIdea" class="status">–</div>
+          <button id="btnTestIdea">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Analyse</h3>
+          <div id="statusAnalyse" class="status">–</div>
+          <button id="btnTestAnalyse">Test</button>
+        </div>
+
+        <div class="card">
+          <h3 class="title" style="font-size:18px;">Execution</h3>
+          <div id="statusExecution" class="status">–</div>
+          <button id="btnTestExecution">Test</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="card">
+      <h2 class="title">Protokoll</h2>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      const ts = new Date().toLocaleTimeString();
+      el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    };
+
+    const setStatus = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    const call = async (method, path, body) => {
+      const url = `http://127.0.0.1:8000/api${path}`;
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      const data = await res.json();
+      return data;
+    };
+
+    // Top Action Buttons
+    document.getElementById('btnSystemtest').onclick = async () => {
+      const r = await call('GET', '/systemtest');
+      log('Systemtest: ' + JSON.stringify(r));
+    };
+
+    document.getElementById('btnIdea').onclick = async () => {
+      const r = await call('GET', '/idea');
+      log('Idee: ' + r.idea);
+    };
+
+    document.getElementById('btnAnalysis').onclick = async () => {
+      const r = await call('GET', '/analysis');
+      log('Analyse: ' + r.analysis);
+    };
+
+    document.getElementById('btnExecute').onclick = async () => {
+      const r = await call('POST', '/execute', { sol: 0.01 });
+      log('Execution: ' + JSON.stringify(r));
+      if (r.balance !== undefined) document.getElementById('balance').textContent = r.balance.toFixed(9);
+      if (r.address) document.getElementById('address').textContent = r.address;
+    };
+
+    // Group Test Buttons (Status + Log)
+    document.getElementById('btnTestQuality').onclick = async () => {
+      setStatus('statusQuality', 'läuft ...');
+      const r = await call('GET', '/systemtest');
+      setStatus('statusQuality', r.report || (r.ok ? 'OK' : 'Fehler'));
+      log('[Quality/Test] ' + JSON.stringify(r));
+    };
+
+    document.getElementById('btnTestIdea').onclick = async () => {
+      setStatus('statusIdea', 'läuft ...');
+      const r = await call('GET', '/idea');
+      setStatus('statusIdea', r.idea || '–');
+      log('[Idea/Test] ' + JSON.stringify(r));
+    };
+
+    document.getElementById('btnTestAnalyse').onclick = async () => {
+      setStatus('statusAnalyse', 'läuft ...');
+      const r = await call('GET', '/analysis');
+      setStatus('statusAnalyse', r.analysis || '–');
+      log('[Analyse/Test] ' + JSON.stringify(r));
+    };
+
+    document.getElementById('btnTestExecution').onclick = async () => {
+      setStatus('statusExecution', 'läuft ...');
+      const r = await call('POST', '/execute', { sol: 0.01 });
+      setStatus('statusExecution', r.ok ? 'OK' : 'Fehler');
+      if (r.balance !== undefined) document.getElementById('balance').textContent = r.balance.toFixed(9);
+      if (r.address) document.getElementById('address').textContent = r.address;
+      log('[Execution/Test] ' + JSON.stringify(r));
+    };
+  </script>
+</body>
+</html>

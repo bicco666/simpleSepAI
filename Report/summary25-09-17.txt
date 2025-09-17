@@ -1,18 +1,26 @@
-Timestamp: 2025-09-17 21:38:40
-Exit code: 0
-Per-Test Ergebnisse:
-(Keine per-Test-Zeilen gefunden – siehe pytest stdout unten)
+......                                                                   [100%]
+=============================== warnings summary ===============================
+Tests/test_research_idea.py::test_research_idea_endpoint_exists
+  /home/bicco/GIT/simpleSEP/simpleSepAI/Backend/research_router.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "idea_id": datetime.datetime.utcnow().strftime("IDEA%Y%m%d%H%M%S"),
 
----- Pytest stdout (Tail) ----
-....                                                                     [100%]
+Tests/test_research_idea.py::test_research_idea_endpoint_exists
+  /home/bicco/GIT/simpleSEP/simpleSepAI/Backend/research_router.py:81: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ts=datetime.datetime.utcnow().isoformat(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 ==================================== PASSES ====================================
 =========================== short test summary info ============================
 PASSED Tests/test_endpoints.py::test_systemtest
 PASSED Tests/test_endpoints.py::test_idea
 PASSED Tests/test_endpoints.py::test_analysis
 PASSED Tests/test_endpoints.py::test_execute
-4 passed in 0.23s
+PASSED Tests/test_research_idea.py::test_research_idea_endpoint_exists
+PASSED Tests/test_research_idea.py::test_idea_text_contains_required_phrase
+6 passed, 2 warnings in 0.44s
 
 
----- Pytest stderr (Tail) ----
 
+[23:15:06] IdeaTest: PASS
+
+[23:16:02] IdeaTest: PASS

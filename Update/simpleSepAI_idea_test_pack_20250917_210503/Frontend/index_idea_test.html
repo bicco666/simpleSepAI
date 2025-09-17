@@ -1,0 +1,115 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>simpleSepAI – Idea Test</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 16px; }
+  .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .status { font-weight: 600; }
+  button { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+  pre { background: #fafafa; border: 1px solid #eee; padding: 8px; border-radius: 8px; max-height: 240px; overflow:auto; }
+</style>
+<script>
+  window.API_BASE = "http://127.0.0.1:8000";
+
+  async function getJSON(path) {
+    const r = await fetch(window.API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+  async function postJSON(path, data) {
+    const r = await fetch(window.API_BASE + path, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: data ? JSON.stringify(data) : null
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function runIdeaSingleTest() {
+    const out = document.getElementById("out");
+    out.textContent = "Starte Idea-Test ...";
+    try {
+      const res = await postJSON("/api/run_test/idea");
+      document.getElementById("status-quality").textContent = res.status;
+      out.textContent = JSON.stringify(res, null, 2);
+    } catch (e) {
+      out.textContent = "Fehler: " + e;
+    }
+  }
+
+  async function checkIdeaEndpoint() {
+    const out = document.getElementById("out");
+    out.textContent = "Hole Idee ...";
+    try {
+      const res = await getJSON("/api/idea");
+      document.getElementById("status-idea").textContent = res.ok ? "OK" : "ERROR";
+      out.textContent = JSON.stringify(res, null, 2);
+    } catch (e) {
+      document.getElementById("status-idea").textContent = "ERROR";
+      out.textContent = "Fehler: " + e;
+    }
+  }
+
+  async function checkAnalysisEndpoint() {
+    const out = document.getElementById("out");
+    out.textContent = "Hole Analyse ...";
+    try {
+      const res = await getJSON("/api/analysis");
+      document.getElementById("status-analyse").textContent = res.ok ? "OK" : "ERROR";
+      out.textContent = JSON.stringify(res, null, 2);
+    } catch (e) {
+      document.getElementById("status-analyse").textContent = "ERROR";
+      out.textContent = "Fehler: " + e;
+    }
+  }
+
+  async function doExecute() {
+    const out = document.getElementById("out");
+    out.textContent = "Führe Execution ...";
+    try {
+      const res = await postJSON("/api/execute", {sol: 0.01});
+      document.getElementById("status-execution").textContent = res.ok ? "OK" : "ERROR";
+      out.textContent = JSON.stringify(res, null, 2);
+    } catch (e) {
+      document.getElementById("status-execution").textContent = "ERROR";
+      out.textContent = "Fehler: " + e;
+    }
+  }
+</script>
+<h1>simpleSepAI – Mini GUI</h1>
+<p>Dieser Screen hat 4 Gruppen (Quality, Idea, Analyse, Execution). <strong>Der Test-Button führt NUR den Idea-Einzeltst aus</strong> (nicht Startup/Gesamttest).</p>
+<div class="grid">
+  <div class="card">
+    <h3>Quality</h3>
+    <div class="row">
+      <span class="status" id="status-quality">-</span>
+      <button onclick="runIdeaSingleTest()">Idea Test (einzeln)</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Idea</h3>
+    <div class="row">
+      <span class="status" id="status-idea">-</span>
+      <button onclick="checkIdeaEndpoint()">Idee abrufen</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Analyse</h3>
+    <div class="row">
+      <span class="status" id="status-analyse">-</span>
+      <button onclick="checkAnalysisEndpoint()">Analyse abrufen</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Execution</h3>
+    <div class="row">
+      <span class="status" id="status-execution">-</span>
+      <button onclick="doExecute()">Execution durchführen</button>
+    </div>
+  </div>
+</div>
+<h3>Ausgabe</h3>
+<pre id="out">-</pre>

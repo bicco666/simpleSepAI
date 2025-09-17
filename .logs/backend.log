@@ -1,22 +1,39 @@
-INFO:     Started server process [155675]
+INFO:     Started server process [169670]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:33412 - "GET /api/systemtest HTTP/1.1" 200 OK
-INFO:     127.0.0.1:33422 - "GET /api/systemtest HTTP/1.1" 200 OK
-INFO:     127.0.0.1:33430 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:33436 - "GET /api/analysis HTTP/1.1" 200 OK
-INFO:     127.0.0.1:33452 - "POST /api/execute HTTP/1.1" 200 OK
-INFO:     127.0.0.1:33464 - "POST /api/run_tests HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60850 - "OPTIONS /api/run_tests HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60850 - "POST /api/run_tests HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53420 - "GET /api/idea HTTP/1.1" 200 OK
-INFO:     127.0.0.1:38782 - "GET /api/systemtest HTTP/1.1" 200 OK
-INFO:     127.0.0.1:38782 - "GET /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57932 - "OPTIONS /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57932 - "POST /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47272 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47272 - "POST /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47272 - "GET /api/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45292 - "OPTIONS /api/execute HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45292 - "POST /api/execute HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44076 - "POST /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46458 - "OPTIONS /api/run_tests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46458 - "POST /api/run_tests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "OPTIONS /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "GET /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "OPTIONS /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "GET /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "OPTIONS /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "GET /api/systemtest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46474 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "OPTIONS /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44952 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39696 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45824 - "POST /api/execute HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54134 - "POST /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33316 - "GET /api/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33316 - "POST /api/run_test/idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33316 - "GET /api/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33316 - "POST /api/execute HTTP/1.1" 200 OK

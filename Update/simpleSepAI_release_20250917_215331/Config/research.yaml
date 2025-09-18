@@ -1,0 +1,50 @@
+providers:
+  openai:
+    enabled: true
+    model: gpt-5.1-mini
+    temperature: 0.2
+    max_output_tokens: 600
+    timeout_seconds: 12
+  twitter:
+    enabled: false
+    base_url: "https://api.twitter.com/2"
+    recent_search_endpoint: "/tweets/search/recent"
+    query: "(SOL OR Solana) (DEX OR DeFi) -is:retweet lang:en"
+    max_results: 25
+    lookback_minutes: 90
+
+investment_profile:
+  objective: "schnelles Momentum-Setup im Solana-Ökosystem"
+  horizon_minutes: 90
+  max_positions: 1
+  risk: 3
+  budget_sol: 0.1
+  constraints: "Spot only, keine Leverage, keine Derivate"
+  include_keywords: ["SOL", "JUP", "ORCA"]
+  exclude_keywords: ["perp", "options", "leverage"]
+  notes: |
+    Suche nach einfachen, klaren Entry/Exit-Regeln. Priorität:
+    - Liquidität (Top-Assets)
+    - geringer Slippage
+    - klare Stop-/Take-Profit-Levels
+
+research_policy:
+  universe: ["SOL", "JUP", "ORCA"]
+  constraints: "Spot only, keine Leverage"
+  risk_bounds: [1, 5]
+  ttl_minutes_default: 90
+  stop_loss_pct: 1.5
+  take_profit_pct: 2.0
+
+routing:
+  prefer_openai: true
+  use_twitter_signals: false
+
+logging:
+  level: "INFO"
+  write_idea_reports: true
+  report_dir: "Report"
+
+env:
+  OPENAI_API_KEY: "${OPENAI_API_KEY}"
+  X_BEARER_TOKEN: "${X_BEARER_TOKEN}"

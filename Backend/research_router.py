@@ -1,8 +1,8 @@
 from __future__ import annotations
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
-from typing import Optional, List, Mapping, Any
-import datetime, time
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Mapping, Any, Dict
+import datetime, time, re
 from pathlib import Path
 from .config_loader import load_config
 from .services.llm_openai import call_openai_generate_with_meta, call_openai_analyze
@@ -50,6 +50,58 @@ class AnalyzeReportRequest(BaseModel):
     provider: Optional[str] = Field("auto", description="LLM provider: 'openai', 'grok', or 'auto'")
 
 class AnalyzeReportResponse(BaseModel):
+    ok: bool
+    source: str = "openai"
+    ts: str
+    analysis_result: str
+    saved_filename: Optional[str] = None
+    error: Optional[str] = None
+    retries: Optional[int] = None
+    duration_ms: Optional[float] = None
+
+class TwitterScrapeRequest(BaseModel):
+    query: Optional[str] = Field("(yield OR staking OR rewards) (SOL OR Solana) -is:retweet lang:en", description="Twitter search query")
+    max_results: Optional[int] = Field(50, ge=10, le=100, description="Maximum tweets to retrieve")
+    lookback_hours: Optional[int] = Field(24, ge=1, le=168, description="Hours to look back for tweets")
+
+    @validator('query')
+    def validate_query(cls, v):
+        if v and len(v) > 500:
+            raise ValueError('Query too long (max 500 characters)')
+        # Basic sanitization - remove potentially harmful characters
+        if v:
+            v = re.sub(r'[<>]', '', v)
+        return v
+
+class TwitterScrapeResponse(BaseModel):
+    ok: bool
+    tweets: List[Dict[str, Any]]
+    count: int
+    query: str
+    ts: str
+    error: Optional[str] = None
+
+class YieldReportRequest(BaseModel):
+    twitter_data: List[Dict[str, Any]]
+    analysis_instructions: str = Field(..., description="Instructions for yield analysis")
+    provider: Optional[str] = Field("auto", description="LLM provider: 'openai', 'grok', or 'auto'")
+
+class YieldReportResponse(BaseModel):
+    ok: bool
+    source: str = "openai"
+    ts: str
+    report_content: str
+    saved_filename: Optional[str] = None
+    error: Optional[str] = None
+    retries: Optional[int] = None
+    duration_ms: Optional[float] = None
+
+class YieldAnalysisRequest(BaseModel):
+    report_filename: str
+    analysis_focus: str = Field("comprehensive", description="Analysis focus: 'comprehensive', 'risk', 'opportunity', 'technical'")
+    provider: Optional[str] = Field("auto", description="LLM provider: 'openai', 'grok', or 'auto'")
+
+class YieldAnalysisResponse(BaseModel):
     ok: bool
     source: str = "openai"
     ts: str
@@ -335,7 +387,11 @@ def analyze_report(req: AnalyzeReportRequest):
 @router.post("/idea", response_model=IdeaResponse)
 def generate_idea(req: IdeaRequest):
     cfg = load_config()
-    tw_signals = recent_search(cfg) if (cfg.get("routing",{}).get("use_twitter_signals",False)) else []
+    tw_signals = []
+    if cfg.get("routing",{}).get("use_twitter_signals",False):
+        signals, error = recent_search(cfg)
+        if signals:
+            tw_signals = signals
     start = time.perf_counter()
 
     # Use the provider-aware function
@@ -365,3 +421,250 @@ def generate_idea(req: IdeaRequest):
             "payload": payload, "twitter_signals": tw_signals or None,
             "error": error, "retries": retries,
             "duration_ms": round(duration, 2)}
+
+@router.post("/twitter/scrape", response_model=TwitterScrapeResponse)
+def scrape_twitter_yield_data(req: TwitterScrapeRequest):
+    """Scrape Twitter for yield-related data and ideas."""
+    cfg = load_config()
+    start = time.perf_counter()
+
+    try:
+        # Get Twitter configuration
+        tw_cfg = cfg.get("providers", {}).get("twitter", {})
+        if not tw_cfg.get("enabled", False):
+            return TwitterScrapeResponse(
+                ok=False,
+                tweets=[],
+                count=0,
+                query=req.query,
+                ts=datetime.datetime.utcnow().isoformat(),
+                error="Twitter provider is not enabled in configuration"
+            )
+
+        # Prepare search parameters
+        search_cfg = {
+            "providers": {
+                "twitter": {
+                    **tw_cfg,
+                    "query": req.query,
+                    "max_results": req.max_results,
+                    "lookback_minutes": req.lookback_hours * 60  # Convert hours to minutes
+                }
+            },
+            "env": cfg.get("env", {})
+        }
+
+        # Perform Twitter search
+        tweets, error = recent_search(search_cfg)
+
+        duration = (time.perf_counter() - start) * 1000.0
+
+        if error:
+            return TwitterScrapeResponse(
+                ok=False,
+                tweets=[],
+                count=0,
+                query=req.query,
+                ts=datetime.datetime.utcnow().isoformat(),
+                error=error
+            )
+
+        return TwitterScrapeResponse(
+            ok=True,
+            tweets=tweets,
+            count=len(tweets),
+            query=req.query,
+            ts=datetime.datetime.utcnow().isoformat(),
+            error=None
+        )
+
+    except Exception as e:
+        duration = (time.perf_counter() - start) * 1000.0
+        print(f"Error scraping Twitter: {e}")
+        return TwitterScrapeResponse(
+            ok=False,
+            tweets=[],
+            count=0,
+            query=req.query,
+            ts=datetime.datetime.utcnow().isoformat(),
+            error=str(e)
+        )
+
+@router.post("/yield/report", response_model=YieldReportResponse)
+def generate_yield_report(req: YieldReportRequest):
+    """Generate a yield analysis report from Twitter data."""
+    cfg = load_config()
+    start = time.perf_counter()
+
+    try:
+        # Prepare the analysis prompt
+        twitter_content = "\n".join([
+            f"Tweet {i+1}: {tweet.get('text', '')} (Created: {tweet.get('created_at', '')})"
+            for i, tweet in enumerate(req.twitter_data)
+        ])
+
+        analysis_prompt = f"""
+        Analyze the following Twitter data for yield opportunities and investment ideas in the Solana ecosystem:
+
+        TWITTER DATA:
+        {twitter_content}
+
+        ANALYSIS INSTRUCTIONS:
+        {req.analysis_instructions}
+
+        Please provide:
+        1. Summary of key themes and sentiment
+        2. Potential yield opportunities identified
+        3. Risk assessment
+        4. Investment recommendations
+        5. Market context and timing considerations
+
+        Focus on actionable insights for yield farming, staking, and DeFi opportunities.
+        """
+
+        # Use the existing analysis function
+        analysis_result, source, error, retries = _analyze_report_with_provider(
+            analysis_prompt, req.analysis_instructions, req, cfg
+        )
+
+        duration = (time.perf_counter() - start) * 1000.0
+
+        if not analysis_result:
+            return YieldReportResponse(
+                ok=False,
+                source=source,
+                ts=datetime.datetime.utcnow().isoformat(),
+                report_content="",
+                error=error,
+                retries=retries,
+                duration_ms=round(duration, 2)
+            )
+
+        # Save the report
+        log_cfg = cfg.get("logging", {})
+        report_dir = Path(__file__).resolve().parent.parent / log_cfg.get("report_dir", "Report")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        saved_filename = f"yield_report_{ts}.txt"
+        (report_dir / saved_filename).write_text(analysis_result, encoding="utf-8")
+
+        # Determine final source
+        final_source = source
+        if source == "openai-fallback":
+            final_source = "openai"
+        elif source == "grok-fallback":
+            final_source = "grok"
+
+        return YieldReportResponse(
+            ok=True,
+            source=final_source,
+            ts=datetime.datetime.utcnow().isoformat(),
+            report_content=analysis_result,
+            saved_filename=saved_filename,
+            error=None,
+            retries=retries,
+            duration_ms=round(duration, 2)
+        )
+
+    except Exception as e:
+        duration = (time.perf_counter() - start) * 1000.0
+        print(f"Error generating yield report: {e}")
+        return YieldReportResponse(
+            ok=False,
+            source="error",
+            ts=datetime.datetime.utcnow().isoformat(),
+            report_content="",
+            error=str(e),
+            retries=0,
+            duration_ms=round(duration, 2)
+        )
+
+@router.post("/yield/analyze", response_model=YieldAnalysisResponse)
+def analyze_yield_report(req: YieldAnalysisRequest):
+    """Analyze an existing yield report with specific focus."""
+    cfg = load_config()
+    start = time.perf_counter()
+
+    try:
+        # Read the report file
+        report_path = Path(__file__).resolve().parent.parent / "Report" / req.report_filename
+        if not report_path.exists() or not report_path.is_file():
+            return YieldAnalysisResponse(
+                ok=False,
+                source="error",
+                ts=datetime.datetime.utcnow().isoformat(),
+                analysis_result="",
+                error=f"Report file '{req.report_filename}' not found",
+                retries=0,
+                duration_ms=0.0
+            )
+
+        report_content = report_path.read_text(encoding="utf-8", errors="ignore")
+
+        # Prepare analysis instructions based on focus
+        focus_instructions = {
+            "comprehensive": "Provide a comprehensive analysis of the yield opportunities, risks, and recommendations.",
+            "risk": "Focus on risk assessment, potential downsides, and risk mitigation strategies.",
+            "opportunity": "Focus on identifying the most promising yield opportunities and entry strategies.",
+            "technical": "Focus on technical analysis, smart contract risks, and protocol-specific considerations."
+        }
+
+        instructions = focus_instructions.get(req.analysis_focus, focus_instructions["comprehensive"])
+        full_instructions = f"{instructions}\n\nAnalyze the following yield report:\n\n{report_content}"
+
+        # Analyze with LLM
+        analysis_result, source, error, retries = _analyze_report_with_provider(
+            report_content, full_instructions, req, cfg
+        )
+
+        duration = (time.perf_counter() - start) * 1000.0
+
+        if not analysis_result:
+            return YieldAnalysisResponse(
+                ok=False,
+                source=source,
+                ts=datetime.datetime.utcnow().isoformat(),
+                analysis_result="",
+                error=error,
+                retries=retries,
+                duration_ms=round(duration, 2)
+            )
+
+        # Save the analysis result
+        log_cfg = cfg.get("logging", {})
+        report_dir = Path(__file__).resolve().parent.parent / log_cfg.get("report_dir", "Report")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        saved_filename = f"yield_analysis_{req.analysis_focus}_{ts}.txt"
+        (report_dir / saved_filename).write_text(analysis_result, encoding="utf-8")
+
+        # Determine final source
+        final_source = source
+        if source == "openai-fallback":
+            final_source = "openai"
+        elif source == "grok-fallback":
+            final_source = "grok"
+
+        return YieldAnalysisResponse(
+            ok=True,
+            source=final_source,
+            ts=datetime.datetime.utcnow().isoformat(),
+            analysis_result=analysis_result,
+            saved_filename=saved_filename,
+            error=None,
+            retries=retries,
+            duration_ms=round(duration, 2)
+        )
+
+    except Exception as e:
+        duration = (time.perf_counter() - start) * 1000.0
+        print(f"Error analyzing yield report: {e}")
+        return YieldAnalysisResponse(
+            ok=False,
+            source="error",
+            ts=datetime.datetime.utcnow().isoformat(),
+            analysis_result="",
+            error=str(e),
+            retries=0,
+            duration_ms=round(duration, 2)
+        )

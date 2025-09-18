@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Twitter Yield Idea Analysis • simpleSepAI</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #3b82f6;
+      --text: #e2e8f0;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --border: #334155;
+    }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .title {
+      font-size: 32px;
+      margin: 0 0 8px;
+      background: linear-gradient(135deg, var(--accent), #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      opacity: 0.8;
+      margin: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    @media (min-width: 768px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 20px;
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #059669; }
+    .btn-warning { background: var(--warning); }
+    .btn-warning:hover { background: #d97706; }
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .status-info { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent); }
+    .status-success { background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); }
+    .status-error { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); }
+    .status-loading { background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); }
+    .tweet-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    .tweet-item {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tweet-item:last-child { border-bottom: none; }
+    .tweet-text { margin: 8px 0; line-height: 1.5; }
+    .tweet-meta {
+      font-size: 12px;
+      opacity: 0.7;
+      display: flex;
+      justify-content: space-between;
+    }
+    .report-content {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .nav-links {
+      text-align: center;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .nav-links a {
+      color: var(--accent);
+      text-decoration: none;
+      margin: 0 16px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .nav-links a:hover {
+      background: rgba(59, 130, 246, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">🐦 Twitter Yield Idea Analysis</h1>
+      <p class="subtitle">Analyze Twitter sentiment and generate yield farming investment ideas</p>
+    </div>
+
+    <div class="grid">
+      <!-- Twitter Configuration -->
+      <div class="card">
+        <h2 class="card-title">🔧 Twitter Configuration</h2>
+        <div class="form-group">
+          <label class="form-label">Search Query</label>
+          <input type="text" id="twitterQuery" class="form-input"
+                 value="(yield OR staking OR rewards OR farming) (SOL OR Solana OR JUP OR ORCA) -is:retweet lang:en"
+                 placeholder="Enter Twitter search query">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Results</label>
+          <input type="number" id="maxResults" class="form-input" value="50" min="10" max="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lookback Hours</label>
+          <input type="number" id="lookbackHours" class="form-input" value="24" min="1" max="168">
+        </div>
+        <button id="scrapeBtn" class="btn">
+           <span class="loading-spinner" id="scrapeSpinner" style="display: none;"></span>
+           📊 Scrape Twitter Data
+        </button>
+        <button id="testScrapeBtn" class="btn btn-warning" style="margin-left: 8px;">
+           <span class="loading-spinner" id="testScrapeSpinner" style="display: none;"></span>
+           🧪 Test Scrape (yield OR DeFi, 10 tweets, 24h)
+        </button>
+        <div id="scrapeStatus" class="status status-info" style="display: none;"></div>
+      </div>
+
+      <!-- Analysis Configuration -->
+      <div class="card">
+        <h2 class="card-title">📋 Analysis Configuration</h2>
+        <div class="form-group">
+          <label class="form-label">Analysis Instructions</label>
+          <textarea id="analysisInstructions" class="form-textarea" placeholder="Enter analysis instructions...">Analyze Twitter sentiment for yield opportunities in Solana ecosystem. Focus on staking rewards, farming yields, and DeFi opportunities. Identify trending protocols and assess community sentiment.</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">LLM Provider</label>
+          <select id="llmProvider" class="form-select">
+            <option value="auto">Auto (OpenAI → Grok)</option>
+            <option value="openai">OpenAI</option>
+            <option value="grok">Grok</option>
+          </select>
+        </div>
+        <button id="generateReportBtn" class="btn btn-success" disabled>
+          <span class="loading-spinner" id="reportSpinner" style="display: none;"></span>
+          📄 Generate Yield Report
+        </button>
+        <div id="reportStatus" class="status status-info" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Twitter Data Display -->
+    <div class="card">
+      <h2 class="card-title">🐦 Twitter Data</h2>
+      <div id="tweetCount" class="status status-info" style="display: none;"></div>
+      <div id="tweetList" class="tweet-list" style="display: none;"></div>
+    </div>
+
+    <!-- Report Display -->
+    <div class="card">
+      <h2 class="card-title">📊 Yield Analysis Report</h2>
+      <div id="reportDisplay" class="report-content" style="display: none;"></div>
+      <div style="margin-top: 16px;">
+        <button id="analyzeComprehensiveBtn" class="btn btn-warning" style="display: none;">
+          <span class="loading-spinner" id="analyzeSpinner" style="display: none;"></span>
+          🔍 Comprehensive Analysis
+        </button>
+        <button id="analyzeRiskBtn" class="btn btn-warning" style="display: none;">
+          ⚠️ Risk Analysis
+        </button>
+        <button id="analyzeOpportunityBtn" class="btn btn-warning" style="display: none;">
+          💎 Opportunity Analysis
+        </button>
+        <button id="analyzeTechnicalBtn" class="btn btn-warning" style="display: none;">
+          🔧 Technical Analysis
+        </button>
+      </div>
+      <div id="analysisStatus" class="status status-info" style="display: none;"></div>
+    </div>
+
+    <!-- Analysis Results -->
+    <div class="card">
+      <h2 class="card-title">🔬 Analysis Results</h2>
+      <div id="analysisDisplay" class="report-content" style="display: none;"></div>
+    </div>
+
+    <div class="nav-links">
+      <a href="index.html">← Back to Dashboard</a>
+      <a href="settings.html">⚙️ Settings</a>
+      <a href="protocol_fallback_demo.html">🚀 API Demo</a>
+    </div>
+  </div>
+
+  <script>
+    let scrapedTweets = [];
+    let currentReportFile = null;
+
+    // Utility functions
+    const showStatus = (elementId, message, type = 'info') => {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = `status status-${type}`;
+      el.style.display = 'block';
+    };
+
+    const hideStatus = (elementId) => {
+      document.getElementById(elementId).style.display = 'none';
+    };
+
+    const setLoading = (buttonId, spinnerId, loading) => {
+      const btn = document.getElementById(buttonId);
+      const spinner = document.getElementById(spinnerId);
+      btn.disabled = loading;
+      spinner.style.display = loading ? 'inline-block' : 'none';
+    };
+
+    const callApi = async (method, path, body) => {
+      const url = `http://127.0.0.1:8000/api/research${path}`;
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json' }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      return await res.json();
+    };
+
+    // Scrape Twitter Data
+    const performScrape = async (query, maxResults, lookbackHours, buttonId, spinnerId) => {
+      setLoading(buttonId, spinnerId, true);
+      showStatus('scrapeStatus', 'Scraping Twitter data...', 'loading');
+
+      try {
+        const response = await callApi('POST', '/twitter/scrape', {
+          query,
+          max_results: maxResults,
+          lookback_hours: lookbackHours
+        });
+
+        if (response.ok) {
+          scrapedTweets = response.tweets;
+          showStatus('scrapeStatus', `Successfully scraped ${response.count} tweets`, 'success');
+
+          // Display tweets
+          const tweetList = document.getElementById('tweetList');
+          const tweetCount = document.getElementById('tweetCount');
+
+          if (response.tweets.length > 0) {
+            tweetCount.textContent = `Found ${response.tweets.length} tweets`;
+            tweetCount.className = 'status status-success';
+            tweetCount.style.display = 'block';
+
+            tweetList.innerHTML = response.tweets.map((tweet, index) => `
+              <div class="tweet-item">
+                <div class="tweet-meta">
+                  <span>Tweet ${index + 1}</span>
+                  <span>${new Date(tweet.created_at).toLocaleString()}</span>
+                </div>
+                <div class="tweet-text">${tweet.text}</div>
+              </div>
+            `).join('');
+            tweetList.style.display = 'block';
+
+            // Enable report generation
+            document.getElementById('generateReportBtn').disabled = false;
+          } else {
+            showStatus('tweetCount', 'No tweets found', 'warning');
+            tweetList.style.display = 'none';
+          }
+        } else {
+          // Handle different error formats
+          let errorMsg = response.error || 'Unknown error';
+          if (response.detail && Array.isArray(response.detail)) {
+            errorMsg = response.detail.map(d => d.msg || d.type).join('; ');
+          }
+          showStatus('scrapeStatus', `Error: ${errorMsg}`, 'error');
+          document.getElementById('generateReportBtn').disabled = true;
+        }
+      } catch (error) {
+        showStatus('scrapeStatus', `Network error: ${error.message}`, 'error');
+        document.getElementById('generateReportBtn').disabled = true;
+      }
+
+      setLoading(buttonId, spinnerId, false);
+    };
+
+    document.getElementById('scrapeBtn').onclick = async () => {
+      const query = document.getElementById('twitterQuery').value;
+      const maxResults = parseInt(document.getElementById('maxResults').value);
+      const lookbackHours = parseInt(document.getElementById('lookbackHours').value);
+      await performScrape(query, maxResults, lookbackHours, 'scrapeBtn', 'scrapeSpinner');
+    };
+
+    document.getElementById('testScrapeBtn').onclick = async () => {
+      await performScrape("yield OR DeFi", 10, 24, 'testScrapeBtn', 'testScrapeSpinner');
+    };
+
+    // Generate Yield Report
+    document.getElementById('generateReportBtn').onclick = async () => {
+      const instructions = document.getElementById('analysisInstructions').value;
+      const provider = document.getElementById('llmProvider').value;
+
+      if (scrapedTweets.length === 0) {
+        showStatus('reportStatus', 'No Twitter data available. Please scrape data first.', 'error');
+        return;
+      }
+
+      setLoading('generateReportBtn', 'reportSpinner', true);
+      showStatus('reportStatus', 'Generating yield analysis report...', 'loading');
+
+      try {
+        const response = await callApi('POST', '/yield/report', {
+          twitter_data: scrapedTweets,
+          analysis_instructions: instructions,
+          provider
+        });
+
+        if (response.ok) {
+          showStatus('reportStatus', `Report generated successfully (${response.source})`, 'success');
+
+          // Display report
+          const reportDisplay = document.getElementById('reportDisplay');
+          reportDisplay.textContent = response.report_content;
+          reportDisplay.style.display = 'block';
+
+          currentReportFile = response.saved_filename;
+
+          // Show analysis buttons
+          document.getElementById('analyzeComprehensiveBtn').style.display = 'inline-block';
+          document.getElementById('analyzeRiskBtn').style.display = 'inline-block';
+          document.getElementById('analyzeOpportunityBtn').style.display = 'inline-block';
+          document.getElementById('analyzeTechnicalBtn').style.display = 'inline-block';
+        } else {
+          showStatus('reportStatus', `Error: ${response.error}`, 'error');
+        }
+      } catch (error) {
+        showStatus('reportStatus', `Network error: ${error.message}`, 'error');
+      }
+
+      setLoading('generateReportBtn', 'reportSpinner', false);
+    };
+
+    // Analysis functions
+    const performAnalysis = async (focus) => {
+      if (!currentReportFile) {
+        showStatus('analysisStatus', 'No report available for analysis', 'error');
+        return;
+      }
+
+      const provider = document.getElementById('llmProvider').value;
+      const buttonMap = {
+        'comprehensive': 'analyzeComprehensiveBtn',
+        'risk': 'analyzeRiskBtn',
+        'opportunity': 'analyzeOpportunityBtn',
+        'technical': 'analyzeTechnicalBtn'
+      };
+
+      setLoading(buttonMap[focus], 'analyzeSpinner', true);
+      showStatus('analysisStatus', `Performing ${focus} analysis...`, 'loading');
+
+      try {
+        const response = await callApi('POST', '/yield/analyze', {
+          report_filename: currentReportFile,
+          analysis_focus: focus,
+          provider
+        });
+
+        if (response.ok) {
+          showStatus('analysisStatus', `Analysis completed successfully (${response.source})`, 'success');
+
+          // Display analysis
+          const analysisDisplay = document.getElementById('analysisDisplay');
+          analysisDisplay.textContent = response.analysis_result;
+          analysisDisplay.style.display = 'block';
+        } else {
+          showStatus('analysisStatus', `Error: ${response.error}`, 'error');
+        }
+      } catch (error) {
+        showStatus('analysisStatus', `Network error: ${error.message}`, 'error');
+      }
+
+      setLoading(buttonMap[focus], 'analyzeSpinner', false);
+    };
+
+    // Bind analysis buttons
+    document.getElementById('analyzeComprehensiveBtn').onclick = () => performAnalysis('comprehensive');
+    document.getElementById('analyzeRiskBtn').onclick = () => performAnalysis('risk');
+    document.getElementById('analyzeOpportunityBtn').onclick = () => performAnalysis('opportunity');
+    document.getElementById('analyzeTechnicalBtn').onclick = () => performAnalysis('technical');
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('Twitter Yield Analysis page loaded');
+    });
+  </script>
+</body>
+</html>

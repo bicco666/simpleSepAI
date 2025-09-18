@@ -1,0 +1,1 @@
+{'idea_id': 'IDEA20250918093715', 'asset': 'SOL', 'thesis': 'Kauf 0,01 Solana', 'entry_rule': 'Market BUY, Size abhängig von budget_sol', 'exit_rule': 'Zeit-Exit 60min oder +2% Profit; Stop -1.5%', 'risk': 3, 'budget_sol': 0.1, 'ttl_minutes': 90, 'expected_catalyst': 'Fallback/Manuell'}

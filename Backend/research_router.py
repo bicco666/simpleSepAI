@@ -1,13 +1,13 @@
 from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal, Mapping, Any
+from typing import Optional, List, Mapping, Any
 import datetime, time
 from pathlib import Path
-from Backend.config_loader import load_config
-from Backend.services.llm_openai import call_openai_generate_with_meta
-from Backend.services.llm_grok import call_grok_generate_with_meta
-from Backend.services.twitter_x import recent_search
+from .config_loader import load_config
+from .services.llm_openai import call_openai_generate_with_meta, call_openai_analyze
+from .services.llm_grok import call_grok_generate_with_meta, call_grok_analyze
+from .services.twitter_x import recent_search
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
@@ -31,10 +31,30 @@ class IdeaPayload(BaseModel):
 
 class IdeaResponse(BaseModel):
     ok: bool
-    source: Literal["openai","grok","openai-fallback","grok-fallback","fallback","error"] = "openai"
+    source: str = "openai"
     ts: str
     payload: IdeaPayload
     twitter_signals: Optional[list] = None
+    error: Optional[str] = None
+    retries: Optional[int] = None
+    duration_ms: Optional[float] = None
+
+class ReportInfo(BaseModel):
+    filename: str
+    timestamp: str
+    preview: str
+
+class AnalyzeReportRequest(BaseModel):
+    filename: str
+    instructions: str = Field(..., description="Analysis instructions")
+    provider: Optional[str] = Field("auto", description="LLM provider: 'openai', 'grok', or 'auto'")
+
+class AnalyzeReportResponse(BaseModel):
+    ok: bool
+    source: str = "openai"
+    ts: str
+    analysis_result: str
+    saved_filename: Optional[str] = None
     error: Optional[str] = None
     retries: Optional[int] = None
     duration_ms: Optional[float] = None
@@ -129,6 +149,53 @@ def _generate_idea_with_provider(req: IdeaRequest, cfg: Mapping[str, Any]) -> Tu
     # But if it does, we'll handle it in the main function
     return None, "error", "All providers failed", 0
 
+def _analyze_report_with_provider(report_content: str, instructions: str, req: AnalyzeReportRequest, cfg: Mapping[str, Any]) -> Tuple[Optional[str], str, Optional[str], int]:
+    """Analyze report using specified provider with fallback logic."""
+    provider = req.provider or "auto"
+
+    # Determine which provider to use
+    if provider == "grok":
+        # Try Grok first
+        analysis, error = call_grok_analyze(report_content, instructions, cfg)
+        if analysis:
+            return analysis, "grok", None, 0
+
+        # If Grok fails and fallback is enabled, try OpenAI
+        if cfg.get("providers", {}).get("openai", {}).get("enabled", False):
+            print("Grok failed, trying OpenAI as fallback...")
+            analysis, error = call_openai_analyze(report_content, instructions, cfg)
+            if analysis:
+                return analysis, "openai-fallback", None, 0
+
+    elif provider == "openai":
+        # Try OpenAI first
+        analysis, error = call_openai_analyze(report_content, instructions, cfg)
+        if analysis:
+            return analysis, "openai", None, 0
+
+        # If OpenAI fails and fallback is enabled, try Grok
+        if cfg.get("providers", {}).get("grok", {}).get("enabled", False):
+            print("OpenAI failed, trying Grok as fallback...")
+            analysis, error = call_grok_analyze(report_content, instructions, cfg)
+            if analysis:
+                return analysis, "grok-fallback", None, 0
+
+    else:  # provider == "auto" - try both in order
+        # Try OpenAI first (default)
+        if cfg.get("providers", {}).get("openai", {}).get("enabled", False):
+            analysis, error = call_openai_analyze(report_content, instructions, cfg)
+            if analysis:
+                return analysis, "openai", None, 0
+
+        # Try Grok as fallback
+        if cfg.get("providers", {}).get("grok", {}).get("enabled", False):
+            analysis, error = call_grok_analyze(report_content, instructions, cfg)
+            if analysis:
+                return analysis, "grok", None, 0
+
+    # If we get here, both providers failed
+    return None, "error", "All providers failed", 0
+
 @router.get("/health")
 def health():
     cfg = load_config()
@@ -156,6 +223,114 @@ def test_grok():
             return {"ok": False, "status": "error", "error": error, "source": "grok"}
     except Exception as e:
         return {"ok": False, "status": "exception", "error": str(e), "source": "grok"}
+
+@router.get("/reports", response_model=List[ReportInfo])
+def get_reports():
+    """Get list of available research reports."""
+    try:
+        report_dir = Path(__file__).resolve().parent.parent / "Report"
+        if not report_dir.exists():
+            return []
+
+        reports = []
+        for file_path in report_dir.iterdir():
+            if file_path.is_file() and file_path.name != ".gitkeep":
+                try:
+                    stat = file_path.stat()
+                    timestamp = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc).isoformat()
+                    content = file_path.read_text(encoding="utf-8", errors="ignore")
+                    preview = content[:200] + ("..." if len(content) > 200 else "")
+                    reports.append(ReportInfo(
+                        filename=file_path.name,
+                        timestamp=timestamp,
+                        preview=preview
+                    ))
+                except Exception as e:
+                    print(f"Error reading file {file_path}: {e}")
+                    continue
+
+        # Sort by timestamp descending (newest first)
+        reports.sort(key=lambda x: x.timestamp, reverse=True)
+        return reports
+    except Exception as e:
+        print(f"Error listing reports: {e}")
+        return []
+
+@router.post("/analyze_report", response_model=AnalyzeReportResponse)
+def analyze_report(req: AnalyzeReportRequest):
+    cfg = load_config()
+    start = time.perf_counter()
+
+    try:
+        # Read the report file
+        report_path = Path(__file__).resolve().parent.parent / "Report" / req.filename
+        if not report_path.exists() or not report_path.is_file():
+            return AnalyzeReportResponse(
+                ok=False,
+                source="error",
+                ts=datetime.datetime.utcnow().isoformat(),
+                analysis_result="",
+                error=f"Report file '{req.filename}' not found",
+                retries=0,
+                duration_ms=0.0
+            )
+
+        report_content = report_path.read_text(encoding="utf-8", errors="ignore")
+
+        # Analyze with LLM
+        analysis_result, source, error, retries = _analyze_report_with_provider(report_content, req.instructions, req, cfg)
+
+        duration = (time.perf_counter() - start) * 1000.0
+
+        if not analysis_result:
+            return AnalyzeReportResponse(
+                ok=False,
+                source=source,
+                ts=datetime.datetime.utcnow().isoformat(),
+                analysis_result="",
+                error=error,
+                retries=retries,
+                duration_ms=round(duration, 2)
+            )
+
+        # Save the analysis result to a new file
+        log_cfg = cfg.get("logging", {})
+        report_dir = Path(__file__).resolve().parent.parent / log_cfg.get("report_dir", "Report")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        saved_filename = f"analysis_{ts}.txt"
+        (report_dir / saved_filename).write_text(analysis_result, encoding="utf-8")
+
+        # Determine final source
+        final_source = source
+        if source == "openai-fallback":
+            final_source = "openai"
+        elif source == "grok-fallback":
+            final_source = "grok"
+
+        return AnalyzeReportResponse(
+            ok=True,
+            source=final_source,
+            ts=datetime.datetime.utcnow().isoformat(),
+            analysis_result=analysis_result,
+            saved_filename=saved_filename,
+            error=None,
+            retries=retries,
+            duration_ms=round(duration, 2)
+        )
+
+    except Exception as e:
+        duration = (time.perf_counter() - start) * 1000.0
+        print(f"Error analyzing report: {e}")
+        return AnalyzeReportResponse(
+            ok=False,
+            source="error",
+            ts=datetime.datetime.utcnow().isoformat(),
+            analysis_result="",
+            error=str(e),
+            retries=0,
+            duration_ms=round(duration, 2)
+        )
 
 @router.post("/idea", response_model=IdeaResponse)
 def generate_idea(req: IdeaRequest):

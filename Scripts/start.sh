@@ -18,6 +18,6 @@ python -m http.server $PORT_FRONTEND > ../.logs/frontend.log 2>&1 &
 FRPID=$!
 popd >/dev/null
 echo "Backend:  http://127.0.0.1:$PORT_BACKEND/docs"
-echo "Frontend: http://127.0.0.1:$PORT_FRONTEND/index_protocol.html"
+echo "Frontend: http://127.0.0.1:$PORT_FRONTEND/index.html"
 echo "Logs in:  $(realpath .logs)"
 echo "Stop with: kill $BEPID $FRPID"

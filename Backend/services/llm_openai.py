@@ -69,6 +69,53 @@ def call_openai_generate(req: Mapping[str, Any], cfg: Mapping[str, Any]) -> Tupl
     data.setdefault("ttl_minutes", int((cfg.get("research_policy") or {}).get("ttl_minutes_default", 90)))
     return data, None
 
+def call_openai_analyze(report_content: str, instructions: str, cfg: Mapping[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    prov = (cfg.get("providers") or {}).get("openai") or {}
+    if not prov.get("enabled", False):
+        return None, "OpenAI provider disabled"
+    if OpenAI is None:
+        return None, "openai package not available"
+
+    # Get API key from config or environment
+    api_key = prov.get("api_key") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None, "Missing OpenAI API key"
+
+    timeout_seconds = int(prov.get("timeout_seconds", 30))
+    client = OpenAI(api_key=api_key, timeout=timeout_seconds)
+
+    model = prov.get("model", "gpt-4o-mini")
+    temperature = float(prov.get("temperature", 0.2))
+    max_tokens = int(prov.get("max_output_tokens", 2000))
+
+    system_prompt = (
+        "You are a research analyst specializing in financial markets and trading. "
+        "Analyze the provided research report and improve it based on the given instructions. "
+        "Incorporate macro market analysis and trade detailing where relevant. "
+        "Provide a comprehensive, improved version of the report with your analysis."
+    )
+
+    user_content = f"Report Content:\n{report_content}\n\nInstructions:\n{instructions}"
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content}
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        text = resp.choices[0].message.content
+        return text, None
+    except Exception as e:
+        err = f"OpenAI API Error: {e}"
+        print(err)
+        return None, err
+
 def call_openai_generate_with_meta(req: Mapping[str, Any], cfg: Mapping[str, Any]) -> Tuple[Optional[Mapping[str, Any]], str, Optional[str], int]:
     """
     Enhanced OpenAI call with retry/backoff and metadata.

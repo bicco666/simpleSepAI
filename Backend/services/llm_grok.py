@@ -131,6 +131,115 @@ def call_grok_generate(req: Mapping[str, Any], cfg: Mapping[str, Any]) -> Tuple[
     data.setdefault("ttl_minutes", int((cfg.get("research_policy") or {}).get("ttl_minutes_default", 90)))
     return data, None
 
+def call_grok_analyze(report_content: str, instructions: str, cfg: Mapping[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    prov = (cfg.get("providers") or {}).get("grok") or {}
+    if not prov.get("enabled", False):
+        return None, "Grok provider disabled"
+    if requests is None:
+        return None, "requests package not available"
+
+    # Get API key from config or environment
+    api_key = prov.get("api_key") or os.getenv("XAI_API_KEY")
+    if not api_key:
+        return None, "Missing xAI API key"
+
+    base_url = prov.get("base_url", "https://api.x.ai")
+    model = prov.get("model", "grok-beta")
+    temperature = float(prov.get("temperature", 0.2))
+    max_tokens = int(prov.get("max_output_tokens", 2000))
+    timeout_seconds = int(prov.get("timeout_seconds", 30))
+
+    system_prompt = (
+        "You are a research analyst specializing in financial markets and trading. "
+        "Analyze the provided research report and improve it based on the given instructions. "
+        "Incorporate macro market analysis and trade detailing where relevant. "
+        "Provide a comprehensive, improved version of the report with your analysis."
+    )
+
+    user_content = f"Report Content:\n{report_content}\n\nInstructions:\n{instructions}"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    # xAI Grok API Format
+    data = {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ],
+        "model": model,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False
+    }
+
+    try:
+        # Try different possible endpoints and models for xAI Grok
+        models_to_try = ["grok-3", "grok-4", "grok-3-mini", "grok-code-fast-1", "grok-beta"]
+        endpoints_to_try = []
+
+        # Generate all combinations of endpoints and models
+        base_endpoints = [
+            f"{base_url}/v1/chat/completions",
+            f"{base_url}/chat/completions",
+            f"{base_url}/api/chat/completions",
+            "https://api.x.ai/v1/chat/completions",
+            "https://api.x.ai/chat/completions"
+        ]
+
+        for endpoint in base_endpoints:
+            for model in models_to_try:
+                endpoints_to_try.append((endpoint, model))
+
+        response = None
+        for endpoint, model_name in endpoints_to_try:
+            try:
+                # Update the data with the current model
+                current_data = data.copy()
+                current_data["model"] = model_name
+
+                response = requests.post(
+                    endpoint,
+                    headers=headers,
+                    json=current_data,
+                    timeout=timeout_seconds
+                )
+                response.raise_for_status()
+                print(f"Grok API success with endpoint: {endpoint} and model: {model_name}")
+                break  # Success, stop trying other combinations
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    continue  # Try next combination
+                else:
+                    print(f"Grok API error with {endpoint} and {model_name}: {e}")
+                    continue  # Try next combination
+            except Exception as e:
+                print(f"Grok API connection error with {endpoint} and {model_name}: {e}")
+                continue  # Try next combination
+
+        if response is None:
+            raise Exception("All xAI Grok endpoints returned 404")
+        response.raise_for_status()
+
+        result = response.json()
+        # Handle different possible response formats
+        if "choices" in result and result["choices"]:
+            text = result["choices"][0]["message"]["content"]
+        elif "content" in result:
+            text = result["content"]
+        elif "response" in result:
+            text = result["response"]
+        else:
+            text = str(result)
+
+        return text, None
+    except Exception as e:
+        err = f"Grok API Error: {e}"
+        print(err)
+        return None, err
+
 def call_grok_generate_with_meta(req: Mapping[str, Any], cfg: Mapping[str, Any]) -> Tuple[Optional[Mapping[str, Any]], str, Optional[str], int]:
     """
     Enhanced Grok call with retry/backoff and metadata.

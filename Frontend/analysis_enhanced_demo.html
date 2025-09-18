@@ -173,6 +173,103 @@
     wrap.prepend(div);
   }
 
+  function displayAnalysisResult(res){
+    const wrap = document.getElementById("analysis-results");
+    const div = document.createElement("div");
+    div.className = "idea";
+
+    let sourceClass = "fallback";
+    let displaySource = res.source.toUpperCase();
+
+    if (res.source === "openai") {
+      sourceClass = "openai";
+      displaySource = "OPENAI";
+    } else if (res.source === "grok") {
+      sourceClass = "grok";
+      displaySource = "GROK";
+    }
+
+    div.innerHTML = `
+      <div class="row">
+        <b>Analysis Result</b>
+        <span class="source-badge ${sourceClass}">${displaySource}</span>
+      </div>
+      <small>${res.analysis_result}</small><br>
+      <div class="meta-info">
+        Saved to: ${res.saved_filename || 'N/A'} | Duration: ${res.duration_ms || 0}ms | Retries: ${res.retries || 0}
+      </div>
+      ${res.error ? `<div class="meta-info" style="color:#ff7780;">Error: ${res.error}</div>` : ''}
+    `;
+    wrap.prepend(div);
+  }
+
+  let reports = [];
+
+  async function loadReports() {
+    setStatus("load-reports", "running");
+    try {
+      const res = await getJSON("/api/research/reports");
+      reports = res || [];
+      populateReportsList();
+      appendLog("Reports", `Loaded ${reports.length} reports`);
+      setStatus("load-reports", "ok");
+    } catch (e) {
+      appendLog("Reports", "Error loading reports: " + e);
+      setStatus("load-reports", "fail");
+    }
+  }
+
+  function populateReportsList() {
+    const list = document.getElementById("reports-list");
+    list.innerHTML = '';
+    reports.forEach((report, index) => {
+      const div = document.createElement("div");
+      div.className = "idea";
+      div.onclick = () => selectReport(index);
+      div.innerHTML = `
+        <div class="row">
+          <b>${index + 1}. ${report.filename}</b>
+        </div>
+        <small>${report.preview || 'No preview'}</small><br>
+        <div class="meta-info">
+          Timestamp: ${report.timestamp}
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  function selectReport(index) {
+    document.getElementById("report-input").value = index + 1;
+  }
+
+  async function analyzeReport() {
+    const reportId = document.getElementById("report-input").value;
+    if (!reportId || isNaN(reportId) || reportId < 1 || reportId > reports.length) {
+      appendLog("Analysis", "Please enter a valid report ID (1-" + reports.length + ")");
+      return;
+    }
+    const index = parseInt(reportId) - 1;
+    const filename = reports[index].filename;
+    const instructions = document.getElementById("analysis-instructions").value;
+    const provider = document.getElementById("provider-select").value;
+    setStatus("analyze-status", "running");
+    try {
+      const body = {
+        filename: filename,
+        instructions: instructions,
+        provider: provider
+      };
+      const res = await postJSON("/api/research/analyze_report", body);
+      appendLog("Analysis", "Analysis completed");
+      displayAnalysisResult(res);
+      setStatus("analyze-status", "ok");
+    } catch (e) {
+      appendLog("Analysis", "Error analyzing report: " + e);
+      setStatus("analyze-status", "fail");
+    }
+  }
+
   window.addEventListener("DOMContentLoaded", () => {
     // Initialize
   });
@@ -190,6 +287,8 @@
     <button class="btn" onclick="testAnalysisConnectivity()">/api/analysis/test<span class="tag" id="test-analysis-connect">-</span></button>
     <div class="section-title">Idee Tests (Zusätzlich)</div>
     <button class="btn" onclick="fetchIdea()">/api/research/idea<span class="tag" id="test-idea">-</span></button>
+    <div class="section-title">Research Reports</div>
+    <button class="btn" onclick="loadReports()">Load Reports<span class="tag" id="load-reports">-</span></button>
     <div class="section-title">Konfiguration</div>
     <label>Risk Level:</label>
     <select id="risk-level">
@@ -240,6 +339,38 @@
             <div class="idea" style="border-style:solid; background:#0a0f1a;">
               <b>Idee-Hinweise:</b><br>
               <small>• Ideen aus Research API<br>• Mit Fallback-Mechanismus</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>📄 Research Reports</h3></div>
+          <div id="reports-list">
+            <div class="idea" style="border-style:solid; background:#0a0f1a;">
+              <b>Report-Hinweise:</b><br>
+              <small>• Click "Load Reports" to fetch available reports<br>• Select a report for analysis</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>🔍 Report Analysis</h3></div>
+          <label>Report ID:</label>
+          <input type="number" id="report-input" placeholder="Enter report ID (1, 2, 3...)" min="1" />
+          <label>Analysis Instructions:</label>
+          <textarea id="analysis-instructions" rows="4">Analyze this research report for trade improvement opportunities and macro analysis insights.</textarea>
+          <label>Provider:</label>
+          <select id="provider-select">
+            <option value="auto">Auto</option>
+            <option value="openai">OpenAI</option>
+            <option value="grok">Grok</option>
+          </select>
+          <button class="btn" onclick="analyzeReport()">Analyze Report<span class="tag" id="analyze-status">-</span></button>
+        </div>
+        <div class="card">
+          <div class="row"><h3>📊 Analysis Results</h3></div>
+          <div id="analysis-results">
+            <div class="idea" style="border-style:solid; background:#0a0f1a;">
+              <b>Analysis Results:</b><br>
+              <small>• Results will appear here after analysis<br>• Includes saved file path and metadata</small>
             </div>
           </div>
         </div>

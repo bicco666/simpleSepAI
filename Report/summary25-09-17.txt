@@ -24,3 +24,7 @@ PASSED Tests/test_research_idea.py::test_idea_text_contains_required_phrase
 [23:15:06] IdeaTest: PASS
 
 [23:16:02] IdeaTest: PASS
+
+[23:32:49] IdeaTest: PASS
+
+[23:57:15] IdeaTest: FAIL

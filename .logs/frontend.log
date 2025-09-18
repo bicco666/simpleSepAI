@@ -1,5 +1,5 @@
-127.0.0.1 - - [17/Sep/2025 23:10:42] "GET /index_idea_test.html HTTP/1.1" 200 -
-dule_as_main
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
   File "<frozen runpy>", line 88, in _run_code
   File "/usr/lib/python3.12/http/server.py", line 1314, in <module>
     test(

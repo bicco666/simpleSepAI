@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simpleSepAI • Settings</title>
+  <style>
+    :root { --bg:#1f2937; --panel:#374151; --text:#e5e7eb; --accent:#60a5fa; }
+    body{ margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .container{ max-width:1100px; margin:24px auto; padding:0 16px; }
+    .card{ background:var(--panel); border-radius:16px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+    .title{ font-size:24px; margin:0 0 8px; }
+    .muted{ opacity:.85; }
+    button{ background:var(--accent); color:#0b1020; border:0; padding:10px 12px; border-radius:12px; font-weight:700; cursor:pointer; }
+    button:disabled{ opacity:.5; cursor:not-allowed;}
+    input, select{ background:#111827; color:var(--text); border:1px solid #374151; padding:8px; border-radius:8px; }
+    label{ display:block; margin-bottom:4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h1 class="title">simpleSepAI • Settings</h1>
+        <p class="muted">Konfiguriere deine Einstellungen hier.</p>
+      </div>
+      <div>
+        <a href="index.html" style="background: var(--accent); color: #0b1020; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">🏠 Zurück zum Dashboard</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="title">API Einstellungen</h2>
+      <label for="apiKey">API Key:</label>
+      <input type="text" id="apiKey" placeholder="Dein API Key" />
+
+      <label for="model" style="margin-top: 16px;">Modell:</label>
+      <select id="model">
+        <option value="gpt-3.5">GPT-3.5</option>
+        <option value="gpt-4">GPT-4</option>
+      </select>
+
+      <button style="margin-top: 16px;">Speichern</button>
+    </div>
+  </div>
+</body>
+</html>

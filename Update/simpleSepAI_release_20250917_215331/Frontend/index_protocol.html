@@ -1,0 +1,94 @@
+<!doctype html><meta charset="utf-8" />
+<title>simpleSepAI – Protokoll</title>
+<style>
+  :root { --bg:#0b0c10; --card:#121318; --muted:#99a3ad; --accent:#3aa6ff; }
+  body { margin:0; font-family: system-ui, sans-serif; color:#e9eef5; background:var(--bg); }
+  .layout { display:grid; grid-template-columns: 260px 1fr; min-height:100vh; }
+  .sidebar { background:#0f1116; border-right:1px solid #1b1f2a; padding:16px; }
+  .main { display:flex; flex-direction:column; }
+  h1 { font-size:20px; margin:16px; }
+  .section-title { font-size:12px; color:var(--muted); margin:12px 0 6px; letter-spacing:.05em; text-transform:uppercase; }
+  .btn { display:block; width:100%; text-align:left; padding:10px 12px; margin:6px 0; background:#141724; border:1px solid #1e2230; border-radius:10px; color:#dce3ec; cursor:pointer; }
+  .btn:hover { border-color:#2c3246; background:#171b2b; }
+  .tag { font-size:11px; color:#a9b3bf; margin-left:6px; }
+  .content { padding:16px; }
+  .cards { display:grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid #1b2030; border-radius:14px; padding:16px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .status { font-size:12px; color:#9fb3c8; }
+  .ok { color:#6fe7a5; } .fail { color:#ff7780; }
+  .log { background:#0c0e13; border:1px solid #1b2030; border-radius:12px; padding:12px; height:300px; overflow:auto; white-space:pre-wrap; }
+  .idea { background:#0c1019; border:1px dashed #263149; border-radius:12px; padding:12px; }
+  .idea + .idea { margin-top:8px; }
+</style>
+<script>
+  const API = "http://127.0.0.1:8000";
+  async function getJSON(p){ const r=await fetch(API+p); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+  async function postJSON(p, body){ const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):null}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+  async function runIdeaUnitTest() {
+    setStatus("test-idea", "running");
+    try { const res = await postJSON("/api/run_test/idea");
+      appendLog("Protokoll", JSON.stringify(res, null, 2));
+      setStatus("test-idea", res.status === "PASS" ? "ok" : "fail");
+      if (res.summary_file) document.getElementById("summary-path").textContent = res.summary_file;
+    } catch (e) { appendLog("Protokoll", "Fehler: " + e); setStatus("test-idea", "fail"); }
+  }
+  async function fetchIdea() {
+    try { const res = await postJSON("/api/research/idea", {risk:3, budget_sol:0.1});
+      addIdea(res.payload); appendLog("Protokoll", "Neue Idee: " + JSON.stringify(res.payload));
+    } catch (e) { appendLog("Protokoll", "Fehler /api/research/idea: " + e); }
+  }
+  async function pingHealth(){
+    try { const res = await getJSON("/api/research/health");
+      appendLog("Protokoll", "Health: " + JSON.stringify(res));
+      document.getElementById("timeout-val").textContent = res.timeout_s + "s";
+      setStatus("test-health", res.ok ? "ok" : "fail");
+    } catch (e) { appendLog("Protokoll", "Health Fehler: " + e); setStatus("test-health", "fail"); }
+  }
+  function setStatus(id, state){
+    const el = document.getElementById(id);
+    el.textContent = state.toUpperCase();
+    el.className = "status " + (state==="ok"?"ok":state==="fail"?"fail":"");
+  }
+  function appendLog(title, text){
+    const log = document.getElementById("log");
+    log.textContent += `\n[${new Date().toLocaleTimeString()}] ${text}`;
+    log.scrollTop = log.scrollHeight;
+  }
+  function addIdea(p){
+    const wrap = document.getElementById("ideas");
+    const div = document.createElement("div");
+    div.className = "idea";
+    div.innerHTML = `<b>${p.asset}</b> — risk ${p.risk}, budget ${p.budget_sol} SOL<br><small>${p.thesis}</small><br><code>${p.entry_rule}</code> → <code>${p.exit_rule}</code>`;
+    wrap.prepend(div);
+  }
+  window.addEventListener("DOMContentLoaded", () => { pingHealth(); });
+</script>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>Tests</h1>
+    <div class="section-title">Einzeltsts</div>
+    <button class="btn" onclick="runIdeaUnitTest()">Idea Test nur (pytest)</button>
+    <div class="section-title">Quick Checks</div>
+    <button class="btn" onclick="pingHealth()">Health prüfen<span class="tag" id="test-health">-</span></button>
+    <button class="btn" onclick="fetchIdea()">/api/research/idea<span class="tag" id="test-idea">-</span></button>
+    <div class="section-title">Summary</div>
+    <div class="status" id="summary-path">Report/summaryYY-MM-DD.txt</div>
+    <div class="section-title">Timeout</div>
+    <div class="status" id="timeout-val">-</div>
+  </aside>
+  <main class="main">
+    <div class="content">
+      <div class="cards">
+        <div class="card">
+          <div class="row"><h3>Protokoll</h3></div>
+          <div class="log" id="log"></div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>Ideen</h3></div>
+          <div id="ideas"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

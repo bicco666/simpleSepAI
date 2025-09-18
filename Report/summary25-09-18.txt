@@ -1,0 +1,7 @@
+[00:01:47] IdeaTest: FAIL
+
+[00:05:48] IdeaTest: FAIL
+
+[00:06:59] IdeaTest: PASS
+
+[01:38:58] AnalysisTest: PASS

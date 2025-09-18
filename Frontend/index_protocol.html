@@ -1,0 +1,251 @@
+<!doctype html><meta charset="utf-8" />
+<title>simpleSepAI – Protokoll</title>
+<style>
+  :root { --bg:#0b0c10; --card:#121318; --muted:#99a3ad; --accent:#3aa6ff; }
+  body { margin:0; font-family: system-ui, sans-serif; color:#e9eef5; background:var(--bg); }
+  .layout { display:grid; grid-template-columns: 260px 1fr; min-height:100vh; }
+  .sidebar { background:#0f1116; border-right:1px solid #1b1f2a; padding:16px; }
+  .main { display:flex; flex-direction:column; }
+  h1 { font-size:20px; margin:16px; }
+  .section-title { font-size:12px; color:var(--muted); margin:12px 0 6px; letter-spacing:.05em; text-transform:uppercase; }
+  .btn { display:block; width:100%; text-align:left; padding:10px 12px; margin:6px 0; background:#141724; border:1px solid #1e2230; border-radius:10px; color:#dce3ec; cursor:pointer; }
+  .btn:hover { border-color:#2c3246; background:#171b2b; }
+  .tag { font-size:11px; color:#a9b3bf; margin-left:6px; }
+  .content { padding:16px; }
+  .cards { display:grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid #1b2030; border-radius:14px; padding:16px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .status { font-size:12px; color:#9fb3c8; }
+  .ok { color:#6fe7a5; } .fail { color:#ff7780; } .warn { color:#ffc768; } .running { color:var(--accent); }
+  .tag.status { float:right; font-size:11px; }
+  .control-panel { margin:10px 0 16px; padding:12px; border:1px solid #1e2230; border-radius:10px; background:#111421; }
+  .control-panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 8px; }
+  .control-group { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .control-group label { font-size:11px; color:var(--muted); }
+  .control-group input { padding:7px 9px; border-radius:8px; border:1px solid #1e2230; background:#141724; color:#e9eef5; }
+  .control-group input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(58,166,255,0.1); }
+  .log { background:#0c0e13; border:1px solid #1b2030; border-radius:12px; padding:12px; height:300px; overflow:auto; white-space:pre-wrap; }
+  .idea { background:#0c1019; border:1px dashed #263149; border-radius:12px; padding:12px; }
+  .idea + .idea { margin-top:8px; }
+  .idea-meta { font-size:11px; color:#9fb3c8; margin:4px 0 6px; }
+  .idea-thesis { font-size:13px; line-height:1.4; }
+  .idea-rules { margin-top:6px; font-size:12px; color:#b4c0ce; }
+  .idea-error { margin-top:6px; font-size:12px; color:#ffc768; }
+</style>
+<script>
+  const API = "http://127.0.0.1:8000";
+
+  async function getJSON(path) {
+    const res = await fetch(API + path);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function postJSON(path, body) {
+    const res = await fetch(API + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : null
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function runIdeaUnitTest() {
+    setStatus("test-idea-pytest", "running");
+    try {
+      const res = await postJSON("/api/run_test/idea");
+      appendLog("Protokoll", `pytest idea → ${JSON.stringify(res)}`);
+      setStatus("test-idea-pytest", res.status === "PASS" ? "ok" : "fail");
+      if (res.summary_file) {
+        document.getElementById("summary-path").textContent = res.summary_file;
+      }
+    } catch (e) {
+      appendLog("Protokoll", "Fehler pytest idea: " + e);
+      setStatus("test-idea-pytest", "fail");
+    }
+  }
+
+  async function fetchIdeaScenario(risk, budgetSol, statusId, label) {
+    if (statusId) setStatus(statusId, "running");
+    try {
+      const payload = { risk, budget_sol: budgetSol };
+      const res = await postJSON("/api/research/idea", payload);
+      addIdea(res);
+      const hint = res.error ? ` | Hinweis: ${res.error}` : "";
+      appendLog("Protokoll", `${label || "Neue Idee"} (${risk}/${budgetSol}) → Quelle ${res.source}${hint}`);
+      if (statusId) setStatus(statusId, res.source === "openai" ? "ok" : "warn");
+    } catch (e) {
+      appendLog("Protokoll", "Fehler /api/research/idea: " + e);
+      if (statusId) setStatus(statusId, "fail");
+    }
+  }
+
+  function fetchIdeaDefault() {
+    return fetchIdeaScenario(3, 0.1, "test-idea-default", "Idea default");
+  }
+
+  function fetchIdeaHigh() {
+    return fetchIdeaScenario(5, 0.3, "test-idea-high", "Idea high risk");
+  }
+
+  async function fetchIdeaCustom() {
+    setStatus("test-idea-custom", "running");
+    const riskInput = document.getElementById("risk-input");
+    const budgetInput = document.getElementById("budget-input");
+    const risk = Number(riskInput.value);
+    const budget = Number(budgetInput.value);
+    if (!Number.isFinite(risk) || risk < 1 || risk > 5) {
+      appendLog("Protokoll", "Risk muss zwischen 1 und 5 liegen");
+      setStatus("test-idea-custom", "fail");
+      return;
+    }
+    if (!Number.isFinite(budget) || budget <= 0) {
+      appendLog("Protokoll", "Budget SOL muss > 0 sein");
+      setStatus("test-idea-custom", "fail");
+      return;
+    }
+    await fetchIdeaScenario(Number(risk.toFixed(2)), Number(budget.toFixed(4)), "test-idea-custom", "Idea custom");
+  }
+
+  async function fetchStaticIdea() {
+    setStatus("test-static-idea", "running");
+    try {
+      const res = await getJSON("/api/idea");
+      addStaticIdea(res);
+      appendLog("Protokoll", "Statische Idee: " + JSON.stringify(res));
+      setStatus("test-static-idea", "ok");
+    } catch (e) {
+      appendLog("Protokoll", "Fehler /api/idea: " + e);
+      setStatus("test-static-idea", "fail");
+    }
+  }
+
+  async function fetchAnalysis() {
+    setStatus("test-analysis", "running");
+    try {
+      const res = await getJSON("/api/analysis");
+      addAnalysis(res);
+      appendLog("Protokoll", "Analyse: " + JSON.stringify(res));
+      setStatus("test-analysis", "ok");
+    } catch (e) {
+      appendLog("Protokoll", "Fehler /api/analysis: " + e);
+      setStatus("test-analysis", "fail");
+    }
+  }
+
+  async function pingHealth() {
+    setStatus("test-health", "running");
+    try {
+      const res = await getJSON("/api/research/health");
+      appendLog("Protokoll", "Health: " + JSON.stringify(res));
+      document.getElementById("timeout-val").textContent = res.timeout_s + "s";
+      setStatus("test-health", res.ok ? "ok" : "fail");
+    } catch (e) {
+      appendLog("Protokoll", "Health Fehler: " + e);
+      setStatus("test-health", "fail");
+    }
+  }
+
+  function setStatus(id, state) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const text = (state || "-").toUpperCase();
+    el.textContent = text;
+    el.classList.remove("ok", "fail", "warn", "running");
+    if (state === "ok" || state === "fail" || state === "warn" || state === "running") {
+      el.classList.add(state);
+    }
+  }
+
+  function appendLog(title, text) {
+    const log = document.getElementById("log");
+    log.textContent += `\n[${new Date().toLocaleTimeString()}] ${text}`;
+    if (log.textContent.length > 6000) {
+      log.textContent = log.textContent.slice(-6000);
+    }
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function addIdea(res) {
+    const wrap = document.getElementById("ideas");
+    const div = document.createElement("div");
+    const p = res.payload;
+    const metaParts = [
+      res.source === "openai" ? "Quelle: OpenAI" : "Quelle: Fallback",
+      typeof res.duration_ms === "number" ? `Dauer: ${Math.round(res.duration_ms)} ms` : null
+    ].filter(Boolean);
+    div.className = "idea";
+    div.innerHTML = `
+      <div><b>${p.asset}</b> — risk ${p.risk}, budget ${p.budget_sol} SOL</div>
+      <div class="idea-meta">${metaParts.join(" · ") || ""}</div>
+      <div class="idea-thesis">${p.thesis}</div>
+      <div class="idea-rules"><code>${p.entry_rule}</code> → <code>${p.exit_rule}</code></div>
+      ${res.error ? `<div class="idea-error">Hinweis: ${res.error}</div>` : ""}
+    `;
+    wrap.prepend(div);
+  }
+
+  function addStaticIdea(res) {
+    const wrap = document.getElementById("ideas");
+    const div = document.createElement("div");
+    div.className = "idea";
+    div.innerHTML = `<b>Statische Idee</b><br><small>${res.idea}</small><br><em>Rohdaten: ${res.file_content}</em>`;
+    wrap.prepend(div);
+  }
+
+  function addAnalysis(res) {
+    const wrap = document.getElementById("ideas");
+    const div = document.createElement("div");
+    div.className = "idea";
+    div.innerHTML = `<b>Analyse</b><br><small>${res.analysis}</small><br><em>Rohdaten: ${res.file_content}</em>`;
+    wrap.prepend(div);
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    pingHealth();
+  });
+</script>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>Tests</h1>
+    <div class="section-title">Einzeltests</div>
+    <button class="btn" onclick="runIdeaUnitTest()">Idea Test nur (pytest)<span class="tag status" id="test-idea-pytest">-</span></button>
+    <div class="section-title">Quick Checks</div>
+    <button class="btn" onclick="pingHealth()">Health prüfen<span class="tag status" id="test-health">-</span></button>
+    <button class="btn" onclick="fetchIdeaDefault()">OpenAI Idee (Risk 3 / 0.1 SOL)<span class="tag status" id="test-idea-default">-</span></button>
+    <button class="btn" onclick="fetchIdeaHigh()">OpenAI Idee (Risk 5 / 0.3 SOL)<span class="tag status" id="test-idea-high">-</span></button>
+    <div class="control-panel">
+      <h2>Custom Idee</h2>
+      <div class="control-group">
+        <label for="risk-input">Risk (1-5)</label>
+        <input type="number" id="risk-input" min="1" max="5" value="3" />
+      </div>
+      <div class="control-group">
+        <label for="budget-input">Budget (SOL)</label>
+        <input type="number" id="budget-input" step="0.01" min="0.01" value="0.1" />
+      </div>
+      <button class="btn" onclick="fetchIdeaCustom()">OpenAI Idee (Custom)<span class="tag status" id="test-idea-custom">-</span></button>
+    </div>
+    <button class="btn" onclick="fetchStaticIdea()">/api/idea (static)<span class="tag status" id="test-static-idea">-</span></button>
+    <button class="btn" onclick="fetchAnalysis()">/api/analysis<span class="tag status" id="test-analysis">-</span></button>
+    <div class="section-title">Summary</div>
+    <div class="status" id="summary-path">Report/summaryYY-MM-DD.txt</div>
+    <div class="section-title">Timeout</div>
+    <div class="status" id="timeout-val">-</div>
+  </aside>
+  <main class="main">
+    <div class="content">
+      <div class="cards">
+        <div class="card">
+          <div class="row"><h3>Protokoll</h3></div>
+          <div class="log" id="log"></div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>Ideen</h3></div>
+          <div id="ideas"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

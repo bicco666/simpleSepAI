@@ -1,0 +1,249 @@
+<!doctype html><meta charset="utf-8" />
+<title>SimpleSepAI – Analysis Enhanced Demo</title>
+<style>
+  :root { --bg:#0b0c10; --card:#121318; --muted:#99a3ad; --accent:#3aa6ff; --success:#6fe7a5; --warning:#ffaa00; --error:#ff7780; }
+  body { margin:0; font-family: system-ui, sans-serif; color:#e9eef5; background:var(--bg); }
+  .layout { display:grid; grid-template-columns: 300px 1fr; min-height:100vh; }
+  .sidebar { background:#0f1116; border-right:1px solid #1b1f2a; padding:16px; }
+  .main { display:flex; flex-direction:column; }
+  h1 { font-size:20px; margin:16px; }
+  .section-title { font-size:12px; color:var(--muted); margin:12px 0 6px; letter-spacing:.05em; text-transform:uppercase; }
+  .btn { display:block; width:100%; text-align:left; padding:10px 12px; margin:6px 0; background:#141724; border:1px solid #1e2230; border-radius:10px; color:#dce3ec; cursor:pointer; }
+  .btn:hover { border-color:#2c3246; background:#171b2b; }
+  .btn:active { background:#1a1e2e; }
+  .tag { font-size:11px; color:#a9b3bf; margin-left:6px; }
+  .content { padding:16px; }
+  .cards { display:grid; grid-template-columns: repeat(auto-fill,minmax(350px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid #1b2030; border-radius:14px; padding:16px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0; }
+  .status { font-size:12px; padding:4px 8px; border-radius:6px; }
+  .status.ok { background:#1a3a2a; color:#6fe7a5; }
+  .status.fail { background:#3a1a1a; color:#ff7780; }
+  .status.running { background:#3a2a1a; color:#ffaa00; }
+  .log { background:#0c0e13; border:1px solid #1b2030; border-radius:12px; padding:12px; height:400px; overflow:auto; white-space:pre-wrap; font-family:monospace; font-size:12px; }
+  .idea { background:#0c1019; border:1px dashed #263149; border-radius:12px; padding:12px; margin:8px 0; }
+  .idea + .idea { margin-top:8px; }
+  .source-badge { font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; }
+  .source-badge.openai { background:#1a3a2a; color:#6fe7a5; }
+  .source-badge.grok { background:#2a1a3a; color:#c77dff; }
+  .source-badge.fallback { background:#3a2a1a; color:#ffaa00; }
+  .source-badge.error { background:#3a1a1a; color:#ff7780; }
+  .meta-info { font-size:11px; color:#99a3ad; margin-top:4px; }
+  input, select { background:#141724; border:1px solid #1e2230; border-radius:6px; color:#e9eef5; padding:6px; margin:4px 0; }
+</style>
+<script>
+  const API = "http://127.0.0.1:8000";
+  async function getJSON(p){ const r=await fetch(API+p); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+  async function postJSON(p, body){ const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):null}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+  async function runAnalysisUnitTest() {
+    setStatus("test-analysis-unit", "running");
+    try {
+      const res = await postJSON("/api/run_test/analysis");
+      appendLog("Analysis Test", JSON.stringify(res, null, 2));
+      setStatus("test-analysis-unit", res.status === "PASS" ? "ok" : "fail");
+      if (res.summary_file) document.getElementById("summary-path").textContent = res.summary_file;
+    } catch (e) { appendLog("Analysis Test", "Fehler: " + e); setStatus("test-analysis-unit", "fail"); }
+  }
+
+  async function fetchAnalysis() {
+    setStatus("test-analysis", "running");
+    try {
+      const res = await getJSON("/api/analysis");
+      addAnalysis(res);
+      appendLog("API", "Analyse geladen");
+      setStatus("test-analysis", "ok");
+    } catch (e) {
+      appendLog("API", "Fehler /api/analysis: " + e);
+      setStatus("test-analysis", "fail");
+    }
+  }
+
+  async function fetchAnalysisWithConfig() {
+    setStatus("test-analysis-config", "running");
+    try {
+      const config = {
+        risk_level: document.getElementById("risk-level").value,
+        market_data: document.getElementById("market-data").value,
+        time_frame: document.getElementById("time-frame").value
+      };
+      const res = await postJSON("/api/analysis/config", config);
+      addAnalysis(res);
+      appendLog("API", "Analyse mit Konfiguration: " + JSON.stringify(config));
+      setStatus("test-analysis-config", "ok");
+    } catch (e) {
+      appendLog("API", "Fehler /api/analysis/config: " + e);
+      setStatus("test-analysis-config", "fail");
+    }
+  }
+
+  async function fetchIdea() {
+    setStatus("test-idea", "running");
+    try {
+      const res = await postJSON("/api/research/idea", {risk:3, budget_sol:0.1, provider:"auto"});
+      addIdea(res);
+      appendLog("API", `Idee: Quelle: ${res.source} | Retries: ${res.retries || 0} | Dauer: ${res.duration_ms || 0}ms`);
+      if (res.error) appendLog("API", `Fehler: ${res.error}`);
+      setStatus("test-idea", res.source === "openai" || res.source === "grok" ? "ok" : "fail");
+    } catch (e) {
+      appendLog("API", "Netzwerk-Fehler: " + e);
+      setStatus("test-idea", "fail");
+    }
+  }
+
+  async function testAnalysisConnectivity() {
+    setStatus("test-analysis-connect", "running");
+    try {
+      const res = await getJSON("/api/analysis/test");
+      appendLog("Analysis Test", `Status: ${res.status}`);
+      if (res.ok) {
+        appendLog("Analysis Test", `Response: ${JSON.stringify(res.response)}`);
+        setStatus("test-analysis-connect", "ok");
+      } else {
+        appendLog("Analysis Test", `Error: ${res.error}`);
+        setStatus("test-analysis-connect", "fail");
+      }
+    } catch (e) {
+      appendLog("Analysis Test", "Netzwerk-Fehler: " + e);
+      setStatus("test-analysis-connect", "fail");
+    }
+  }
+
+  function setStatus(id, state){
+    const el = document.getElementById(id);
+    el.textContent = state.toUpperCase();
+    el.className = "status " + state;
+  }
+
+  function appendLog(title, text){
+    const log = document.getElementById("log");
+    const timestamp = new Date().toLocaleTimeString();
+    log.textContent += `[${timestamp}] ${title}: ${text}\n`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function addAnalysis(res){
+    const wrap = document.getElementById("analyses");
+    const div = document.createElement("div");
+    div.className = "idea";
+    div.innerHTML = `
+      <div class="row">
+        <b>Analyse</b>
+        <span class="source-badge fallback">STATIC</span>
+      </div>
+      <small>${res.analysis}</small><br>
+      <em>Rohdaten: ${res.file_content}</em>
+      <div class="meta-info">
+        Risk Level: ${res.risk_level || 'N/A'} | Market Data: ${res.market_data || 'N/A'} | Time Frame: ${res.time_frame || 'N/A'}
+      </div>
+    `;
+    wrap.prepend(div);
+  }
+
+  function addIdea(res){
+    const wrap = document.getElementById("ideas");
+    const div = document.createElement("div");
+    div.className = "idea";
+
+    let sourceClass = "fallback";
+    let displaySource = res.source.toUpperCase();
+
+    if (res.source === "openai" || res.source.startsWith("openai")) {
+      sourceClass = "openai";
+      displaySource = "OPENAI";
+    } else if (res.source === "grok" || res.source.startsWith("grok")) {
+      sourceClass = "grok";
+      displaySource = "GROK";
+    }
+
+    div.innerHTML = `
+      <div class="row">
+        <b>${res.payload.asset}</b>
+        <span class="source-badge ${sourceClass}">${displaySource}</span>
+      </div>
+      <small>${res.payload.thesis}</small><br>
+      <code>${res.payload.entry_rule}</code> → <code>${res.payload.exit_rule}</code>
+      <div class="meta-info">
+        Risk: ${res.payload.risk} | Budget: ${res.payload.budget_sol} SOL |
+        TTL: ${res.payload.ttl_minutes}min | Retries: ${res.retries || 0} |
+        Duration: ${res.duration_ms || 0}ms
+      </div>
+      ${res.error ? `<div class="meta-info" style="color:#ff7780;">Error: ${res.error}</div>` : ''}
+    `;
+    wrap.prepend(div);
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // Initialize
+  });
+</script>
+<div class="layout">
+  <aside class="sidebar">
+    <div style="margin-bottom: 16px;">
+      <a href="index.html" style="background: var(--accent); color: #0b1020; padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block; font-size: 12px;">🏠 Dashboard</a>
+    </div>
+    <h1>📊 Analysis Enhanced Demo</h1>
+    <div class="section-title">Analyse Tests</div>
+    <button class="btn" onclick="runAnalysisUnitTest()">Analysis Unit Test (pytest)<span class="tag" id="test-analysis-unit">-</span></button>
+    <button class="btn" onclick="fetchAnalysis()">/api/analysis<span class="tag" id="test-analysis">-</span></button>
+    <button class="btn" onclick="fetchAnalysisWithConfig()">/api/analysis/config<span class="tag" id="test-analysis-config">-</span></button>
+    <button class="btn" onclick="testAnalysisConnectivity()">/api/analysis/test<span class="tag" id="test-analysis-connect">-</span></button>
+    <div class="section-title">Idee Tests (Zusätzlich)</div>
+    <button class="btn" onclick="fetchIdea()">/api/research/idea<span class="tag" id="test-idea">-</span></button>
+    <div class="section-title">Konfiguration</div>
+    <label>Risk Level:</label>
+    <select id="risk-level">
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+    <label>Market Data:</label>
+    <input type="text" id="market-data" placeholder="e.g. BTC/USD" />
+    <label>Time Frame:</label>
+    <select id="time-frame">
+      <option value="1h">1 Hour</option>
+      <option value="4h">4 Hours</option>
+      <option value="1d">1 Day</option>
+    </select>
+    <div class="status" id="summary-path">Report/summaryYY-MM-DD.txt</div>
+    <div class="section-title">Features</div>
+    <div style="font-size:11px; color:#99a3ad; line-height:1.4;">
+      ✅ Analyse API Integration<br>
+      ✅ Konfigurierbare Parameter<br>
+      ✅ Unit Tests für Analyse<br>
+      ✅ Idee API als Ergänzung<br>
+      ✅ Detaillierte Logs<br>
+      ✅ Fehlerbehandlung<br>
+      <br>
+      <a href="index.html" style="color: var(--accent); text-decoration: none;">🔗 Zum Haupt-Dashboard</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="content">
+      <div class="cards">
+        <div class="card">
+          <div class="row"><h3>📋 Protokoll & Logs</h3></div>
+          <div class="log" id="log"></div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>📊 Analysen</h3></div>
+          <div id="analyses">
+            <div class="idea" style="border-style:solid; background:#0a0f1a;">
+              <b>Analyse-Hinweise:</b><br>
+              <small>• Analysen werden mit Logs angezeigt<br>• Konfiguration beeinflusst Ergebnisse<br>• Unit Tests prüfen Funktionalität</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>💡 Ideen (Zusätzlich)</h3></div>
+          <div id="ideas">
+            <div class="idea" style="border-style:solid; background:#0a0f1a;">
+              <b>Idee-Hinweise:</b><br>
+              <small>• Ideen aus Research API<br>• Mit Fallback-Mechanismus</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
